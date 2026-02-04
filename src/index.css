@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    /* Colors */
+    --color-primary: #991b1b;
+    /* Deep Red */
+    --color-primary-hover: #7f1d1d;
+    --color-gold: #d4af37;
+    /* Premium Gold */
+    --color-bg-main: #f5f7f9;
+    /* Light Gray Background */
+    --color-bg-white: #ffffff;
+    --color-text-main: #1a1a1a;
+    --color-text-secondary: #6e7a89;
+    --color-border: #e0e0e0;
+    --color-success: #2e7d32;
+    --color-success-bg: #e6f7eb;
+    --color-warning: #ed6c02;
+    --color-warning-bg: #fff4e5;
+    --color-danger: #d32f2f;
+    --color-danger-bg: #ffebee;
+
+    --sidebar-width: 250px;
+    --header-height: 70px;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: var(--color-bg-main);
+    color: var(--color-text-main);
+    -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Component Overrides & specific styles that might not map 1:1 to standard Tailwind utilities easily without refactoring JSX */
+
+/* Component Specific */
+button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    background: none;
+    transition: all 0.2s;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+input {
+    outline: none;
+}
+
+/* --- Premium Animations --- */
+@keyframes kenburns {
+    0% {
+        transform: scale(1) translate(0, 0);
+    }
+
+    50% {
+        transform: scale(1.1) translate(-1%, -1%);
+    }
+
+    100% {
+        transform: scale(1) translate(0, 0);
+    }
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #e2e8f0;
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #cbd5e1;
+}
