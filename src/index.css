@@ -4,67 +4,59 @@
 
 :root {
     /* Colors */
-    --color-primary: #991b1b;
-    /* Deep Red */
+    --color-primary: #991b1b; /* Deep Red */
     --color-primary-hover: #7f1d1d;
-    --color-gold: #d4af37;
-    /* Premium Gold */
-    --color-bg-main: #f5f7f9;
-    /* Light Gray Background */
+    --color-gold: #d4af37; /* Premium Gold */
+    --color-bg-main: #f5f7f9; /* Light Gray Background */
     --color-bg-white: #ffffff;
     --color-text-main: #1a1a1a;
     --color-text-secondary: #6e7a89;
     --color-border: #e0e0e0;
-    --color-success: #2e7d32;
-    --color-success-bg: #e6f7eb;
-    --color-warning: #ed6c02;
-    --color-warning-bg: #fff4e5;
-    --color-danger: #d32f2f;
-    --color-danger-bg: #ffebee;
+    
+    /* New Luxury Palette */
+    --color-burgundy: #991b1b;
+    --color-cream: #fffaf0;
+    --color-rich-black: #0a0a0a;
 
     --sidebar-width: 250px;
     --header-height: 70px;
 }
 
 body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Outfit', system-ui, -apple-system, sans-serif;
     background-color: var(--color-bg-main);
     color: var(--color-text-main);
     -webkit-font-smoothing: antialiased;
 }
 
-/* Custom Component Overrides & specific styles that might not map 1:1 to standard Tailwind utilities easily without refactoring JSX */
-
-/* Component Specific */
-button {
-    font-family: inherit;
-    cursor: pointer;
-    border: none;
-    background: none;
-    transition: all 0.2s;
-}
-
-table {
-    border-collapse: collapse;
-}
-
-input {
-    outline: none;
-}
-
 /* --- Premium Animations --- */
 @keyframes kenburns {
-    0% {
-        transform: scale(1) translate(0, 0);
-    }
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
 
-    50% {
-        transform: scale(1.1) translate(-1%, -1%);
-    }
+@keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
 
-    100% {
-        transform: scale(1) translate(0, 0);
-    }
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.animate-slide-up {
+    animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+    animation: fadeIn 1s ease-out forwards;
 }
 
 .no-scrollbar::-webkit-scrollbar {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingBag, Search, Menu, X, Instagram, Facebook, ArrowRight, Star, Heart, CheckCircle2, ShieldCheck, Truck, RotateCcw } from 'lucide-react';
+import { ShoppingBag, Search, Menu, X, Instagram, Facebook, ArrowRight, Star, Heart, CheckCircle2, ShieldCheck, Truck, RotateCcw, Phone, MessageCircle } from 'lucide-react';
 import { supabase } from '../../lib/supabaseClient';
 
 const Storefront = () => {
@@ -18,6 +18,7 @@ const Storefront = () => {
     const [selectedProduct, setSelectedProduct] = useState(null); // For Quick View
     const [orderStep, setOrderStep] = useState('form');
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [scrolled, setScrolled] = useState(false);
 
     // Checkout Info
     const [customerInfo, setCustomerInfo] = useState({ name: '', phone: '', address: '', paymentMethod: 'ZAAD-USD' });
@@ -31,7 +32,18 @@ const Storefront = () => {
         fetchStoreData();
         const savedCart = localStorage.getItem('paris_abaya_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
+
+        const handleScroll = () => setScrolled(window.scrollY > 50);
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
     }, []);
+
+    // Effect to pre-select size when opening quick view
+    useEffect(() => {
+        if (selectedProduct && selectedProduct.sizes?.length > 0) {
+            setSelectedSize(selectedProduct.sizes[0]);
+        }
+    }, [selectedProduct]);
 
     useEffect(() => {
         localStorage.setItem('paris_abaya_cart', JSON.stringify(cart));
@@ -52,22 +64,37 @@ const Storefront = () => {
     };
 
     const addToCart = (product, size) => {
-        if (!size && product.sizes?.length > 0) {
-            setSelectedProduct(product);
-            return;
+        // 1. If size is explicitly provided, use it.
+        // 2. If no size provided (grid click), but product has only 1 size, use that (auto-add).
+        // 3. Otherwise (multiple sizes), open modal for selection.
+
+        let targetSize = size;
+
+        if (!targetSize) {
+            if (product.sizes?.length === 1) {
+                targetSize = product.sizes[0];
+            } else if (product.sizes?.length > 1) {
+                setSelectedProduct(product);
+                return;
+            } else {
+                targetSize = 'Standard';
+            }
         }
 
         setCart(prev => {
-            const cartKey = `${product.id}-${size || 'Standard'}`;
+            const cartKey = `${product.id}-${targetSize}`;
             const exists = prev.find(item => item.cartKey === cartKey);
             if (exists) {
                 return prev.map(item => item.cartKey === cartKey ? { ...item, qty: item.qty + 1 } : item);
             }
-            return [...prev, { ...product, cartKey, selectedSize: size || 'Standard', qty: 1 }];
+            return [...prev, { ...product, cartKey, selectedSize: targetSize, qty: 1 }];
         });
         setIsCartOpen(true);
-        setSelectedProduct(null);
-        setSelectedSize('');
+        // Only close modal if we were in the modal (selectedProduct was set)
+        if (selectedProduct) {
+            setSelectedProduct(null);
+            setSelectedSize('');
+        }
     };
 
     const removeFromCart = (cartKey) => {
@@ -118,27 +145,30 @@ const Storefront = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#fafafa] font-['Outfit'] text-gray-900 scroll-smooth">
+        <div className="min-h-screen bg-[#fafafa] font-['Outfit'] text-gray-900 selection:bg-red-900 selection:text-white">
+
             {/* --- Navigation --- */}
-            <nav className="fixed top-0 w-full z-50 bg-white/90 backdrop-blur-xl border-b border-gray-100 transition-all">
-                <div className="max-w-[1440px] mx-auto px-6 h-20 flex justify-between items-center">
-                    <div className="flex items-center gap-12">
-                        <h1 onClick={() => { setSelectedCategory('All'); setSearchQuery(''); }} className="text-2xl font-black tracking-tighter text-red-800 cursor-pointer">PARIS ABAYA</h1>
-                        <div className="hidden lg:flex gap-8 text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">
-                            {['Home', 'Catalog', 'Collections', 'About'].map(item => (
-                                <a key={item} href={`#${item.toLowerCase()}`} className="hover:text-red-600 transition-colors">{item}</a>
+            <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${scrolled ? 'bg-white/90 backdrop-blur-xl border-b border-gray-100 py-4 shadow-sm' : 'bg-transparent py-6'}`}>
+                <div className="max-w-[1600px] mx-auto px-6 md:px-12 flex justify-between items-center">
+                    <div className="flex items-center gap-16">
+                        <h1 onClick={() => { setSelectedCategory('All'); setSearchQuery(''); window.scrollTo(0, 0); }}
+                            className={`text-2xl md:text-3xl font-black tracking-tighter cursor-pointer transition-colors font-playfair ${scrolled ? 'text-red-900' : 'text-white'}`}>
+                            PARIS ABAYA
+                        </h1>
+                        <div className={`hidden lg:flex gap-8 text-[11px] font-bold uppercase tracking-[0.2em] transition-colors ${scrolled ? 'text-gray-500' : 'text-white/80'}`}>
+                            {['Catalog', 'Atelier', 'Contact'].map(item => (
+                                <a key={item} href={`#${item.toLowerCase()}`} className="hover:text-red-600 transition-all hover:scale-105">{item}</a>
                             ))}
                         </div>
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Desktop Search */}
-                        <div className={`hidden md:flex items-center bg-gray-50 border border-gray-100 rounded-full px-4 py-2 transition-all ${isSearching ? 'w-64 ring-2 ring-red-100' : 'w-48'}`}>
-                            <Search size={16} className="text-gray-400" />
+                        <div className={`hidden md:flex items-center rounded-full px-5 py-2.5 transition-all ${isSearching ? 'bg-white ring-2 ring-red-100 w-72' : scrolled ? 'bg-gray-100 w-56' : 'bg-white/10 backdrop-blur-md w-56 border border-white/20'}`}>
+                            <Search size={16} className={scrolled ? "text-gray-400" : "text-white/70"} />
                             <input
                                 type="text"
                                 placeholder="Search collection..."
-                                className="bg-transparent border-none outline-none text-xs font-bold ml-2 w-full placeholder:text-gray-300"
+                                className={`bg-transparent border-none outline-none text-xs font-bold ml-3 w-full placeholder:text-gray-400 ${!scrolled && 'text-white placeholder:text-white/50'}`}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 onFocus={() => setIsSearching(true)}
@@ -146,8 +176,8 @@ const Storefront = () => {
                             />
                         </div>
 
-                        <button onClick={() => setIsCartOpen(true)} className="relative p-2.5 hover:bg-red-50 rounded-full transition-all group">
-                            <ShoppingBag size={22} className="text-gray-700 group-hover:text-red-800" />
+                        <button onClick={() => setIsCartOpen(true)} className={`relative p-3 rounded-full transition-all group ${scrolled ? 'hover:bg-red-50' : 'hover:bg-white/10'}`}>
+                            <ShoppingBag size={22} className={`transition-colors ${scrolled ? 'text-gray-800 group-hover:text-red-800' : 'text-white'}`} />
                             {cart.length > 0 && (
                                 <span className="absolute top-1 right-1 w-5 h-5 bg-red-800 text-white text-[10px] font-black flex items-center justify-center rounded-full border-2 border-white shadow-lg animate-in zoom-in">
                                     {cart.reduce((a, b) => a + b.qty, 0)}
@@ -155,122 +185,175 @@ const Storefront = () => {
                             )}
                         </button>
 
-                        <button onClick={() => setIsMobileMenuOpen(true)} className="lg:hidden p-2.5 hover:bg-red-50 rounded-full"><Menu size={22} /></button>
+                        <button onClick={() => setIsMobileMenuOpen(true)} className={`lg:hidden p-3 rounded-full ${scrolled ? 'hover:bg-red-50 text-gray-800' : 'hover:bg-white/10 text-white'}`}>
+                            <Menu size={24} />
+                        </button>
                     </div>
                 </div>
             </nav>
 
             {/* --- Hero Section --- */}
-            <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/20 z-10" />
-                <img
-                    src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=2000&auto=format&fit=crop"
-                    className="absolute inset-0 w-full h-full object-cover scale-105 animate-[kenburns_40s_linear_infinite]"
-                    alt="Luxury Fashion"
-                />
-                <div className="relative z-20 text-center px-6">
-                    <div className="inline-flex items-center gap-2 px-6 py-2 bg-white/10 backdrop-blur-md rounded-full border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.4em] mb-8 animate-in slide-in-from-top-12 duration-1000">
-                        Spring / Summer 2026
-                    </div>
-                    <h2 className="text-[12vw] md:text-8xl font-black text-white mb-8 leading-[0.85] tracking-tighter drop-shadow-2xl">
-                        SILK & <br /> <span className="text-transparent border-t-0 bg-clip-text bg-gradient-to-r from-red-400 to-amber-200">MAJESTY</span>
-                    </h2>
-                    <p className="text-lg md:text-2xl text-white/90 font-medium mb-12 max-w-2xl mx-auto leading-relaxed drop-shadow-lg">
-                        Unveiling the essence of Parisian Modesty. Hand-stitched with the world's most premium fabrics.
-                    </p>
-                    <a href="#catalog" className="inline-flex items-center gap-4 px-12 py-6 bg-red-800 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl shadow-red-900/40 hover:bg-red-700 hover:-translate-y-1 transition-all group">
-                        Explore Collection
-                        <ArrowRight className="group-hover:translate-x-2 transition-transform" />
-                    </a>
-                </div>
-            </section>
+            <header className="relative h-[95vh] flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-black/30 z-10" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 z-10" />
 
-            {/* --- Trust Badges --- */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 px-6 py-12 bg-white border-b border-gray-100">
-                {[
-                    { icon: <CheckCircle2 className="text-emerald-600" />, label: "Premium Quality", sub: "100% Original Fabrics" },
-                    { icon: <Truck className="text-blue-600" />, label: "Secure Delivery", sub: "To your doorstep" },
-                    { icon: <ShieldCheck className="text-red-800" />, label: "Authentic Design", sub: "By Parisian Craftsmen" },
-                    { icon: <RotateCcw className="text-amber-600" />, label: "Easy Exchange", sub: "7-Day Return Policy" }
-                ].map((item, i) => (
-                    <div key={i} className="flex flex-col items-center text-center">
-                        <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">{item.icon}</div>
-                        <h4 className="text-sm font-black uppercase tracking-widest leading-none mb-1">{item.label}</h4>
-                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.sub}</p>
+                {/* Parallax Background */}
+                <div className="absolute inset-0">
+                    <img
+                        src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=2500&auto=format&fit=crop"
+                        className="w-full h-full object-cover animate-[kenburns_30s_linear_infinite]"
+                        alt="Luxury Fashion"
+                    />
+                </div>
+
+                <div className="relative z-20 text-center px-6 max-w-5xl mx-auto flex flex-col items-center">
+                    <div className="animate-fade-in opacity-0" style={{ animationDelay: '0.2s' }}>
+                        <div className="inline-flex items-center gap-3 px-6 py-2 bg-white/10 backdrop-blur-xl rounded-full border border-white/20 text-white text-[10px] font-black uppercase tracking-[0.3em] mb-8 shadow-2xl">
+                            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                            New Collection 2026
+                        </div>
                     </div>
-                ))}
+
+                    <h2 className="text-[12vw] lg:text-[7rem] font-black text-white mb-6 leading-[0.85] tracking-tighter drop-shadow-2xl font-playfair animate-slide-up opacity-0" style={{ animationDelay: '0.4s' }}>
+                        ELEGANCE <br /> IN <span className="text-transparent bg-clip-text bg-gradient-to-r from-red-200 via-amber-100 to-red-200">MOTION</span>
+                    </h2>
+
+                    <p className="text-lg md:text-xl text-gray-200 font-light mb-12 max-w-2xl mx-auto leading-relaxed drop-shadow-lg animate-slide-up opacity-0" style={{ animationDelay: '0.6s' }}>
+                        Discover the epitome of Parisian modesty. Meticulously crafted abayas that blend timeless tradition with contemporary luxury.
+                    </p>
+
+                    <div className="flex flex-col md:flex-row gap-6 animate-slide-up opacity-0" style={{ animationDelay: '0.8s' }}>
+                        <a href="#catalog" className="px-10 py-5 bg-white text-red-950 rounded-full font-black text-xs uppercase tracking-widest shadow-[0_0_40px_-10px_rgba(255,255,255,0.3)] hover:bg-gray-100 hover:scale-105 transition-all duration-300">
+                            Explore Collection
+                        </a>
+                        <a href="#about" className="px-10 py-5 bg-white/10 backdrop-blur-lg border border-white/20 text-white rounded-full font-black text-xs uppercase tracking-widest hover:bg-white/20 hover:scale-105 transition-all duration-300">
+                            Our Atelier
+                        </a>
+                    </div>
+                </div>
+
+                {/* Scroll Indicator */}
+                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 text-white/50 animate-bounce">
+                    <span className="text-[9px] uppercase tracking-widest">Scroll</span>
+                    <ArrowRight className="rotate-90" size={16} />
+                </div>
+            </header>
+
+            {/* --- Marquee --- */}
+            <div className="bg-red-950 py-6 overflow-hidden whitespace-nowrap border-y border-red-900/50">
+                <div className="inline-block animate-marquee">
+                    {[...Array(10)].map((_, i) => (
+                        <span key={i} className="text-white/20 text-4xl font-playfair font-black mx-12">PARIS ABAYA • LUXURY • MODESTY • ELEGANCE • </span>
+                    ))}
+                </div>
             </div>
 
+
+
             {/* --- Filter System --- */}
-            <section id="catalog" className="sticky top-20 z-[40] bg-white/70 backdrop-blur-md border-b border-gray-100">
-                <div className="max-w-[1440px] mx-auto px-6 py-4 flex items-center justify-center gap-3 overflow-x-auto no-scrollbar">
-                    {categories.map(cat => (
-                        <button
-                            key={cat}
-                            onClick={() => setSelectedCategory(cat)}
-                            className={`px-8 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all whitespace-nowrap shadow-sm ${selectedCategory === cat ? 'bg-red-800 text-white shadow-red-900/20' : 'bg-white text-gray-400 border border-gray-100 hover:border-red-200'}`}
-                        >
-                            {cat}
-                        </button>
-                    ))}
+            <section id="catalog" className="sticky top-20 z-[40] bg-white/80 backdrop-blur-xl border-b border-gray-100/50 py-6">
+                <div className="max-w-[1600px] mx-auto px-6 overflow-x-auto no-scrollbar">
+                    <div className="flex justify-center min-w-max gap-3">
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setSelectedCategory(cat)}
+                                className={`px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-300 border ${selectedCategory === cat ? 'bg-red-900 text-white border-red-900 shadow-xl shadow-red-900/20 scale-105' : 'bg-white text-gray-400 border-gray-200 hover:border-red-200 hover:text-red-900'}`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </section>
 
             {/* --- Product Grid --- */}
-            <main className="max-w-[1440px] mx-auto px-6 py-20 min-h-[60vh]">
+            <main className="max-w-[1600px] mx-auto px-6 md:px-12 py-24 min-h-[60vh]">
                 {loading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-16">
                         {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                             <div key={i} className="animate-pulse">
-                                <div className="aspect-[3/4.5] bg-gray-200 rounded-[2.5rem] mb-6" />
+                                <div className="aspect-[3/4.2] bg-gray-200 rounded-[2rem] mb-6" />
                                 <div className="h-4 bg-gray-200 rounded-full w-2/3 mb-3" />
                                 <div className="h-4 bg-gray-200 rounded-full w-1/3" />
                             </div>
                         ))}
                     </div>
                 ) : filteredProducts.length === 0 ? (
-                    <div className="py-40 text-center flex flex-col items-center animate-in fade-in zoom-in">
-                        <Search size={64} className="text-gray-100 mb-6" />
-                        <h3 className="text-2xl font-black text-gray-300 uppercase tracking-widest">Mystery Collection</h3>
-                        <p className="text-gray-400 font-bold mt-2">Try searching for something else or browse all products.</p>
-                        <button onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }} className="mt-8 text-red-800 font-black text-xs uppercase tracking-widest underline underline-offset-8">Reset Gallery</button>
+                    <div className="py-40 text-center flex flex-col items-center animate-fade-in">
+                        <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-8">
+                            <Search size={40} className="text-gray-400" />
+                        </div>
+                        <h3 className="text-3xl font-playfair font-black text-gray-900 mb-4">No Masterpieces Found</h3>
+                        <p className="text-gray-500 font-medium max-w-md mx-auto mb-8">Your search for "{searchQuery}" didn't reveal any treasures. Please try a different term or category.</p>
+                        <button onClick={() => { setSearchQuery(''); setSelectedCategory('All'); }} className="text-red-900 font-black text-xs uppercase tracking-widest border-b-2 border-red-900 pb-1 hover:text-red-700 transition-colors">Reset Gallery</button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
-                        {filteredProducts.map(product => (
-                            <div key={product.id} className="group relative" onClick={() => setSelectedProduct(product)}>
-                                <div className="relative aspect-[3/4.5] overflow-hidden rounded-[3rem] bg-gray-100 mb-6 cursor-pointer shadow-sm hover:shadow-2xl hover:shadow-red-900/10 transition-all duration-700">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-20">
+                        {filteredProducts.map((product, idx) => (
+                            <div key={product.id}
+                                className="group relative animate-slide-up opacity-0"
+                                style={{ animationDelay: `${idx * 0.1}s`, animationFillMode: 'forwards' }}
+                                onClick={() => setSelectedProduct(product)}>
+
+                                {/* Image Card */}
+                                <div className="relative aspect-[3/4.2] overflow-hidden rounded-[2.5rem] bg-gray-100 mb-8 cursor-pointer">
+                                    <div className="absolute inset-0 bg-gray-200 animate-pulse" /> {/* Loading Placeholder */}
                                     <img
                                         src={product.image_url}
-                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000"
+                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-[1.5s] ease-out group-hover:scale-110"
                                         alt={product.name}
+                                        loading="lazy"
                                     />
-                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-500 flex items-center justify-center p-8">
-                                        <div className="w-full h-full border-2 border-white/20 rounded-[2rem] flex flex-col items-center justify-center gap-4 transform translate-y-10 group-hover:translate-y-0 transition-transform duration-500">
-                                            <button className="w-48 py-4 bg-white text-red-900 rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-red-800 hover:text-white transition-all">Quick View</button>
-                                            <p className="text-white text-[10px] font-black uppercase tracking-widest">Detail View</p>
-                                        </div>
-                                    </div>
-                                    <div className="absolute top-8 left-8 flex flex-col gap-2">
-                                        {product.stock < 10 && <span className="px-4 py-1.5 bg-red-800 text-white text-[9px] font-black uppercase tracking-widest rounded-full shadow-lg">Low Stock</span>}
-                                        <span className="px-4 py-1.5 bg-white/90 backdrop-blur text-[9px] font-black uppercase tracking-widest rounded-full text-red-900 shadow-sm">{product.category}</span>
-                                    </div>
-                                    <button className="absolute top-8 right-8 w-10 h-10 bg-white/50 backdrop-blur rounded-full flex items-center justify-center text-white hover:text-red-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100"><Heart size={18} /></button>
-                                </div>
-                                <div className="px-4">
-                                    <h4 className="text-xl font-black text-gray-900 mb-1 uppercase tracking-tight truncate group-hover:text-red-700 transition-colors">{product.name}</h4>
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex flex-col">
-                                            <span className="text-2xl font-black text-red-950">${product.price.toLocaleString()}</span>
-                                            {product.stock > 0 && <span className="text-[10px] text-emerald-600 font-black uppercase tracking-widest">In Stock</span>}
-                                        </div>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); addToCart(product); }}
-                                            className="w-12 h-12 bg-red-50 text-red-800 rounded-2xl flex items-center justify-center hover:bg-red-800 hover:text-white transition-all"
-                                        >
-                                            <ShoppingBag size={20} />
+
+                                    {/* Overlay */}
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+
+                                    {/* Action Buttons Overlay */}
+                                    <div className="absolute inset-0 flex items-center justify-center gap-4 opacity-0 group-hover:opacity-100 transition-all duration-500 translate-y-4 group-hover:translate-y-0">
+                                        <button className="h-12 px-8 bg-white/95 backdrop-blur-md text-red-950 rounded-full font-bold text-[10px] uppercase tracking-widest hover:bg-red-950 hover:text-white transition-all shadow-xl">
+                                            Quick View
                                         </button>
                                     </div>
+
+                                    {/* Badges */}
+                                    <div className="absolute top-6 left-6 flex flex-col gap-2">
+                                        {product.stock < 10 && (
+                                            <span className="px-3 py-1 bg-red-600 text-white text-[9px] font-black uppercase tracking-widest rounded-md shadow-lg">
+                                                Only {product.stock} left
+                                            </span>
+                                        )}
+                                        {idx < 2 && (
+                                            <span className="px-3 py-1 bg-white/90 backdrop-blur text-red-900 text-[9px] font-black uppercase tracking-widest rounded-md shadow-sm">
+                                                Bestseller
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    <button className="absolute top-6 right-6 w-10 h-10 bg-white/80 backdrop-blur rounded-full flex items-center justify-center text-gray-400 hover:text-red-600 hover:bg-white transition-all opacity-0 group-hover:opacity-100 transform translate-y-[-10px] group-hover:translate-y-0 duration-300">
+                                        <Heart size={18} />
+                                    </button>
+                                </div>
+
+                                {/* Info */}
+                                <div className="px-2">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h4 className="text-lg font-bold text-gray-900 uppercase tracking-wide leading-tight group-hover:text-red-900 transition-colors w-2/3">
+                                            {product.name}
+                                        </h4>
+                                        <span className="text-lg font-playfair font-black text-red-900">
+                                            ${product.price}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs font-medium text-gray-400 mb-4 line-clamp-1">{product.description || "Premium Abaya Collection"}</p>
+
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); addToCart(product); }}
+                                        className="w-full py-4 border border-gray-200 rounded-xl text-xs font-black uppercase tracking-widest text-gray-900 hover:bg-red-900 hover:text-white hover:border-red-900 transition-all flex items-center justify-center gap-2 group/btn"
+                                    >
+                                        <ShoppingBag size={14} />
+                                        Add to Bag
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -278,152 +361,242 @@ const Storefront = () => {
                 )}
             </main>
 
+            {/* --- About Section --- */}
+            <section id="about" className="py-32 bg-[#fafafa]">
+                <div className="max-w-7xl mx-auto px-6">
+                    <div className="flex flex-col md:flex-row items-center gap-16">
+                        <div className="md:w-1/2 relative">
+                            <div className="aspect-[4/5] rounded-[3rem] overflow-hidden">
+                                <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?q=80&w=1200&auto=format&fit=crop" className="w-full h-full object-cover" alt="Atelier" />
+                            </div>
+                            <div className="absolute -bottom-10 -right-10 w-48 h-48 bg-white p-4 rounded-full flex items-center justify-center animate-[spin_10s_linear_infinite]">
+                                <svg viewBox="0 0 100 100" className="w-full h-full">
+                                    <path id="curve" d="M 25, 50 a 25,25 0 1,1 50,0 a 25,25 0 1,1 -50,0" fill="transparent" />
+                                    <text className="text-[14px] font-bold uppercase tracking-[0.2em] fill-red-900">
+                                        <textPath href="#curve"> • Paris Abaya • Est 2024</textPath>
+                                    </text>
+                                </svg>
+                            </div>
+                        </div>
+                        <div className="md:w-1/2">
+                            <span className="text-red-900 text-xs font-black uppercase tracking-[0.4em] mb-6 block">The Atelier</span>
+                            <h2 className="text-5xl md:text-6xl font-playfair font-black text-gray-900 mb-8 leading-tight">Crafting Modesty <br /><span className="text-gray-400">Since 2024</span></h2>
+                            <p className="text-gray-500 font-medium leading-loose mb-8 text-lg">
+                                At Paris Abaya, we believe that modesty is the ultimate sophistication. Our journey began in the heart of Mogadishu, inspired by the timeless elegance of Parisian couture.
+                            </p>
+                            <p className="text-gray-500 font-medium leading-loose mb-12 text-lg">
+                                Each piece is meticulously designed to empower women, blending traditional values with contemporary aesthetics. We source only the finest fabrics, ensuring that every abaya is not just a garment, but a masterpiece.
+                            </p>
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/e/e4/Signature_sample.svg" className="h-12 opacity-50" alt="Signature" />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* --- Features Section --- */}
+            <section className="bg-white py-32 border-t border-gray-100">
+                <div className="max-w-[1400px] mx-auto px-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+                        {[
+                            { icon: <Star size={32} />, title: "Premium Fabrics", desc: "Sourced from the finest mills in Turkey and Dubai." },
+                            { icon: <ShieldCheck size={32} />, title: "Secure Checkout", desc: "Your data is protected with 256-bit encryption." },
+                            { icon: <Truck size={32} />, title: "Global Shipping", desc: "Express delivery to over 50 countries worldwide." }
+                        ].map((feature, i) => (
+                            <div key={i} className="flex flex-col items-center text-center p-8 bg-gray-50 rounded-[3rem] hover:bg-gray-100 transition-colors duration-500">
+                                <div className="w-20 h-20 rounded-full bg-white shadow-xl flex items-center justify-center text-red-900 mb-8">
+                                    {feature.icon}
+                                </div>
+                                <h3 className="text-xl font-bold text-gray-900 mb-4 font-playfair">{feature.title}</h3>
+                                <p className="text-gray-500 leading-relaxed max-w-xs">{feature.desc}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
             {/* --- Newsletter Section --- */}
-            <section className="bg-red-950 py-32 px-6 overflow-hidden relative">
-                <div className="absolute top-0 right-0 w-96 h-96 bg-red-800/10 rounded-full blur-[100px] translate-x-1/2 -translate-y-1/2" />
+            <section className="relative bg-red-950 py-40 px-6 overflow-hidden">
+                <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-red-600/20 rounded-full blur-[120px] translate-x-1/2 -translate-y-1/2" />
+
                 <div className="max-w-4xl mx-auto text-center relative z-10">
-                    <h3 className="text-4xl md:text-6xl font-black text-white mb-6 uppercase tracking-tight">Join the Inner Circle</h3>
-                    <p className="text-red-200/60 font-medium mb-12 text-lg">Receive exclusive previews, styling advice, and early access to new collections.</p>
-                    <div className="flex flex-col md:flex-row gap-4 max-w-lg mx-auto">
+                    <span className="text-red-300 text-xs font-black uppercase tracking-[0.4em] mb-6 block">Stay Connected</span>
+                    <h3 className="text-5xl md:text-7xl font-playfair font-black text-white mb-8">Join the Inner Circle</h3>
+                    <p className="text-red-100/60 font-medium mb-16 text-lg max-w-2xl mx-auto leading-relaxed">
+                        Subscribe to receive exclusive access to limited edition drops, private sales, and styling advice from our experts.
+                    </p>
+
+                    <div className="flex flex-col md:flex-row gap-4 max-w-xl mx-auto p-2 bg-white/5 backdrop-blur-lg border border-white/10 rounded-full">
                         <input
                             type="email"
                             placeholder="Your email address"
-                            className="flex-1 px-8 py-5 bg-white/10 border border-white/20 rounded-full text-white placeholder:text-red-300/30 outline-none focus:bg-white/20 transition-all font-bold"
+                            className="flex-1 px-8 py-4 bg-transparent text-white placeholder:text-white/30 outline-none font-bold text-sm"
                         />
-                        <button className="px-10 py-5 bg-white text-red-950 rounded-full font-black text-xs uppercase tracking-widest hover:bg-red-100 transition-all">Subscribe</button>
+                        <button className="px-12 py-4 bg-white text-red-950 rounded-full font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform">
+                            Subscribe
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            {/* --- Contact Section --- */}
+            <section id="contact" className="py-32 bg-white relative overflow-hidden">
+                <div className="max-w-5xl mx-auto px-6 text-center relative z-10">
+                    <span className="text-red-900 text-xs font-black uppercase tracking-[0.4em] mb-6 block">Get in Touch</span>
+                    <h2 className="text-5xl md:text-6xl font-playfair font-black text-gray-900 mb-12">Visit Our Boutique</h2>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-16">
+                        <div className="p-12 bg-gray-50 rounded-[3rem] text-center border border-gray-100">
+                            <Phone className="w-10 h-10 text-red-900 mx-auto mb-6" size={40} />
+                            <h4 className="text-xl font-bold font-playfair mb-2">Call Us Today</h4>
+                            <p className="text-gray-400 text-sm font-bold uppercase tracking-widest mb-6">Mon-Fri, 9am - 9pm</p>
+                            <a href="tel:0633825207" className="text-3xl font-black text-gray-900 hover:text-red-900 transition-colors">063 382 5207</a>
+                        </div>
+                        <div className="p-12 bg-red-900 text-white rounded-[3rem] text-center shadow-xl">
+                            <MessageCircle className="w-10 h-10 text-white mx-auto mb-6" size={40} />
+                            <h4 className="text-xl font-bold font-playfair mb-2">WhatsApp Support</h4>
+                            <p className="text-white/60 text-sm font-bold uppercase tracking-widest mb-6">Start a Chat</p>
+                            <a href="https://wa.me/252633825207" className="text-3xl font-black text-white hover:text-red-200 transition-colors">063 382 5207</a>
+                        </div>
                     </div>
                 </div>
             </section>
 
             {/* --- Footer --- */}
-            <footer className="bg-white px-6 pt-32 pb-12 border-t border-gray-100">
-                <div className="max-w-[1440px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
+            <footer className="bg-white pt-32 pb-12 border-t border-gray-100">
+                <div className="max-w-[1600px] mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-20 mb-20">
                     <div>
-                        <h2 className="text-2xl font-black tracking-tighter text-red-800 mb-8">PARIS ABAYA</h2>
-                        <p className="text-gray-400 font-medium leading-relaxed mb-8">Crafting elegance since 2012. Our mission is to provide the highest quality modest fashion for the modern woman.</p>
+                        <h2 className="text-3xl font-playfair font-black text-red-900 mb-8">PARIS ABAYA</h2>
+                        <p className="text-gray-400 font-medium leading-relaxed mb-8 max-w-xs">
+                            Redefining modest fashion with a touch of Parisian elegance. Every piece tells a story of grace and dignity.
+                        </p>
                         <div className="flex gap-4">
-                            <a href="#" className="w-10 h-10 border border-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-800 hover:border-red-100 transition-all"><Instagram size={18} /></a>
-                            <a href="#" className="w-10 h-10 border border-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-800 hover:border-red-100 transition-all"><Facebook size={18} /></a>
+                            {['Instagram', 'Twitter', 'Facebook'].map(social => (
+                                <a key={social} href="#" className="w-12 h-12 border border-gray-100 rounded-full flex items-center justify-center text-gray-400 hover:bg-red-900 hover:text-white hover:border-red-900 transition-all">
+                                    <span className="sr-only">{social}</span>
+                                    <Star size={16} /> {/* Placeholder Icon */}
+                                </a>
+                            ))}
                         </div>
                     </div>
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-8">Collections</h4>
-                        <ul className="space-y-4 text-sm font-bold text-gray-400">
-                            {categories.slice(1, 5).map(cat => <li key={cat}><a href="#" className="hover:text-red-800 transition-colors uppercase tracking-widest text-[10px]">{cat}</a></li>)}
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-8">Help</h4>
-                        <ul className="space-y-4 text-sm font-bold text-gray-400">
-                            <li><a href="#" className="hover:text-red-800 transition-colors uppercase tracking-widest text-[10px]">Shipping Policy</a></li>
-                            <li><a href="#" className="hover:text-red-800 transition-colors uppercase tracking-widest text-[10px]">Returns & Exchanges</a></li>
-                            <li><a href="#" className="hover:text-red-800 transition-colors uppercase tracking-widest text-[10px]">Size Guide</a></li>
-                            <li><a href="#" className="hover:text-red-800 transition-colors uppercase tracking-widest text-[10px]">FAQ</a></li>
-                        </ul>
-                    </div>
-                    <div>
-                        <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-8">Our Studio</h4>
-                        <p className="text-gray-400 font-medium leading-relaxed mb-4 text-sm">Avenue de l'Opéra<br />75001 Paris, France</p>
-                        <p className="text-gray-900 font-black text-sm">+252 61 XXX XXXX</p>
-                    </div>
+
+                    {[
+                        { title: "Collections", links: ["New Arrivals", "Best Sellers", "Essentials", "Accessories"] },
+                        { title: "Customer Care", links: ["Shipping Policy", "Returns & Exchanges", "Size Guide", "FAQ"] },
+                        { title: "Legal", links: ["Privacy Policy", "Terms of Service", "Cookie Policy", "Accessibility"] }
+                    ].map((col, i) => (
+                        <div key={i}>
+                            <h4 className="text-xs font-black uppercase tracking-[0.2em] mb-10 text-gray-900">{col.title}</h4>
+                            <ul className="space-y-6 text-sm font-bold text-gray-500">
+                                {col.links.map(link => (
+                                    <li key={link}><a href="#" className="hover:text-red-900 transition-colors hover:pl-2 duration-300 block">{link}</a></li>
+                                ))}
+                            </ul>
+                        </div>
+                    ))}
                 </div>
-                <div className="max-w-[1440px] mx-auto pt-12 border-t border-gray-50 flex flex-col md:flex-row justify-between items-center gap-6">
+
+                <div className="max-w-[1600px] mx-auto px-6 pt-12 border-t border-gray-50 flex flex-col md:flex-row justify-between items-center gap-6">
                     <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">© 2026 Paris Abaya. All rights reserved.</p>
-                    <div className="flex gap-8 text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-                        <a href="#">Privacy</a>
-                        <a href="#">Terms</a>
-                        <a href="#">Cookies</a>
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">System Operational</span>
                     </div>
                 </div>
             </footer>
 
             {/* --- Quick View Modal --- */}
             {selectedProduct && (
-                <div className="fixed inset-0 z-[150] flex items-center justify-center px-6 bg-red-950/20 backdrop-blur-xl">
-                    <div className="bg-white w-full max-w-5xl rounded-[3.5rem] shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in duration-300 max-h-[90vh]">
-                        <div className="md:w-1/2 bg-gray-50 overflow-hidden h-[40vh] md:h-auto">
+                <div className="fixed inset-0 z-[150] flex items-center justify-center px-6 bg-black/60 backdrop-blur-md p-4 animate-in fade-in duration-300">
+                    <div
+                        className="bg-white w-full max-w-6xl rounded-[3rem] shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh] relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => { setSelectedProduct(null); setSelectedSize(''); }}
+                            className="absolute top-6 right-6 z-10 w-12 h-12 bg-white/50 backdrop-blur rounded-full flex items-center justify-center text-gray-900 hover:bg-white transition-all"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        <div className="md:w-1/2 bg-gray-100 relative">
                             <img src={selectedProduct.image_url} className="w-full h-full object-cover" alt="" />
                         </div>
-                        <div className="md:w-1/2 p-8 md:p-16 flex flex-col h-full overflow-y-auto">
-                            <div className="flex justify-between items-start mb-8">
-                                <span className="px-6 py-2 bg-red-50 text-red-800 rounded-full text-[10px] font-black uppercase tracking-[0.2em]">{selectedProduct.category}</span>
-                                <button onClick={() => { setSelectedProduct(null); setSelectedSize(''); }} className="p-3 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-800 rounded-full transition-all"><X size={24} /></button>
-                            </div>
-                            <h3 className="text-4xl font-black text-gray-900 mb-4 tracking-tight uppercase leading-none">{selectedProduct.name}</h3>
-                            <p className="text-3xl font-black text-red-950 mb-10">${selectedProduct.price.toLocaleString()}</p>
 
-                            <div className="space-y-10 flex-1">
-                                <div>
-                                    <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-4">Description</h4>
-                                    <p className="text-gray-500 font-medium leading-relaxed">{selectedProduct.description || "A masterpiece of luxury and modesty, this abaya is crafted from premium breathable fabric, ensuring you look regal for any occasion."}</p>
-                                </div>
+                        <div className="md:w-1/2 p-12 md:p-20 flex flex-col h-full overflow-y-auto custom-scrollbar">
+                            <div className="mb-auto">
+                                <span className="text-red-900 text-[10px] font-black uppercase tracking-[0.3em] mb-4 block">{selectedProduct.category}</span>
+                                <h3 className="text-5xl font-playfair font-black text-gray-900 mb-6 leading-none">{selectedProduct.name}</h3>
+                                <p className="text-3xl font-bold text-gray-900 mb-12">${selectedProduct.price}</p>
 
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <h4 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em]">Select Size</h4>
-                                        <a href="#" className="text-[10px] font-black text-red-800 uppercase underline underline-offset-4">Size Guide</a>
+                                <div className="space-y-12">
+                                    <div>
+                                        <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest mb-4">Description</h4>
+                                        <p className="text-gray-500 leading-relaxed font-medium">{selectedProduct.description || "Crafted with precision and care, this piece embodies the essence of luxury modest fashion."}</p>
                                     </div>
-                                    <div className="flex flex-wrap gap-2">
-                                        {(selectedProduct.sizes || ['Standard', 'S', 'M', 'L']).map(size => (
-                                            <button
-                                                key={size}
-                                                onClick={() => setSelectedSize(size)}
-                                                className={`px-8 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${selectedSize === size ? 'bg-red-800 text-white shadow-xl' : 'bg-gray-50 text-gray-400 hover:bg-white hover:border-red-200 border border-transparent'}`}
-                                            >
-                                                {size}
-                                            </button>
-                                        ))}
+
+                                    <div>
+                                        <div className="flex justify-between items-center mb-6">
+                                            <h4 className="text-xs font-black text-gray-900 uppercase tracking-widest">Select Size</h4>
+                                            <button className="text-[10px] font-bold text-gray-400 uppercase underline decoration-gray-300 underline-offset-4 hover:text-red-900 transition-colors">Size Guide</button>
+                                        </div>
+                                        <div className="flex flex-wrap gap-3">
+                                            {(selectedProduct.sizes || ['Standard', 'S', 'M', 'L']).map(size => (
+                                                <button
+                                                    key={size}
+                                                    onClick={() => setSelectedSize(size)}
+                                                    className={`w-14 h-14 rounded-full text-xs font-black transition-all flex items-center justify-center ${selectedSize === size ? 'bg-red-900 text-white shadow-xl scale-110' : 'bg-gray-50 text-gray-500 hover:bg-gray-100'}`}
+                                                >
+                                                    {size}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <button
-                                onClick={() => addToCart(selectedProduct, selectedSize)}
-                                className="w-full py-6 mt-12 bg-red-800 text-white rounded-[2rem] font-black text-lg shadow-2xl shadow-red-900/10 hover:bg-red-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-4 group"
-                            >
-                                <ShoppingBag size={24} />
-                                Add to Bag
-                                <ArrowRight className="group-hover:translate-x-2 transition-transform" />
-                            </button>
+                            <div className="mt-12 pt-12 border-t border-gray-100">
+                                <button
+                                    onClick={() => addToCart(selectedProduct, selectedSize)}
+                                    className="w-full py-6 bg-red-900 text-white rounded-full font-black text-sm uppercase tracking-widest shadow-2xl shadow-red-900/20 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                                >
+                                    <ShoppingBag size={20} />
+                                    Add to Bag - ${(selectedProduct.price * 1).toFixed(2)}
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
             )}
 
             {/* --- Cart Drawer --- */}
-            <div className={`fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-2xl z-[200] transform transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
+            <div className={`fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-[200] transform transition-transform duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${isCartOpen ? 'translate-x-0' : 'translate-x-full'}`}>
                 <div className="h-full flex flex-col">
-                    <div className="p-10 border-b border-gray-100 flex justify-between items-center">
-                        <div>
-                            <h3 className="text-2xl font-black tracking-tight uppercase">My Bag</h3>
-                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">{cart.length} Masterpieces</p>
-                        </div>
-                        <button onClick={() => setIsCartOpen(false)} className="p-4 hover:bg-red-50 rounded-full transition-all text-gray-300 hover:text-red-800"><X size={28} /></button>
+                    <div className="p-8 border-b border-gray-50 flex justify-between items-center bg-white/80 backdrop-blur-xl absolute top-0 w-full z-10">
+                        <span className="text-xl font-playfair font-black text-gray-900">Your Bag ({cart.reduce((a, b) => a + b.qty, 0)})</span>
+                        <button onClick={() => setIsCartOpen(false)} className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 hover:bg-red-50 hover:text-red-900 transition-all"><X size={20} /></button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-10 space-y-10 no-scrollbar">
+                    <div className="flex-1 overflow-y-auto p-8 pt-32 space-y-8 no-scrollbar bg-[#fafafa]">
                         {cart.length === 0 ? (
-                            <div className="h-full flex flex-col items-center justify-center text-center opacity-40">
-                                <ShoppingBag size={80} strokeWidth={1} className="text-gray-100 mb-8" />
-                                <p className="font-black text-gray-400 uppercase tracking-widest">Bag is Empty</p>
+                            <div className="h-full flex flex-col items-center justify-center text-center opacity-40 pb-20">
+                                <ShoppingBag size={64} className="text-gray-300 mb-6" />
+                                <p className="font-bold text-gray-400 uppercase tracking-widest text-xs">Your bag is empty</p>
                             </div>
                         ) : (
                             cart.map(item => (
-                                <div key={item.cartKey} className="group flex gap-8">
-                                    <div className="w-28 h-40 rounded-[2rem] bg-gray-50 overflow-hidden shrink-0 shadow-sm transition-transform group-hover:scale-105 duration-500">
+                                <div key={item.cartKey} className="flex gap-6 bg-white p-4 rounded-3xl shadow-sm border border-gray-100">
+                                    <div className="w-20 h-24 rounded-2xl bg-gray-50 overflow-hidden shrink-0">
                                         <img src={item.image_url} className="w-full h-full object-cover" alt="" />
                                     </div>
-                                    <div className="flex-1 py-4 flex flex-col justify-between">
+                                    <div className="flex-1 flex flex-col justify-between py-1">
                                         <div>
-                                            <h4 className="text-lg font-black text-gray-900 uppercase leading-none mb-2 truncate max-w-[200px]">{item.name}</h4>
-                                            <div className="flex gap-4">
-                                                <span className="text-[10px] font-black text-red-800 uppercase tracking-widest px-3 py-1 bg-red-50 rounded-full">Size: {item.selectedSize}</span>
-                                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest px-3 py-1 bg-gray-50 rounded-full">Qty: {item.qty}</span>
-                                            </div>
+                                            <h4 className="font-bold text-gray-900 text-sm mb-1 line-clamp-1">{item.name}</h4>
+                                            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wide">Size: {item.selectedSize}</p>
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-xl font-black text-red-950">${(item.price * item.qty).toLocaleString()}</span>
-                                            <button onClick={() => removeFromCart(item.cartKey)} className="text-[10px] font-black text-red-600 uppercase tracking-widest hover:underline decoration-2 underline-offset-4">Remove Item</button>
+                                        <div className="flex justify-between items-end">
+                                            <span className="font-bold text-red-900">${(item.price * item.qty).toFixed(2)}</span>
+                                            <button onClick={() => removeFromCart(item.cartKey)} className="text-[10px] font-bold text-gray-300 uppercase hover:text-red-500 transition-colors">Remove</button>
                                         </div>
                                     </div>
                                 </div>
@@ -432,17 +605,17 @@ const Storefront = () => {
                     </div>
 
                     {cart.length > 0 && (
-                        <div className="p-10 border-t border-gray-100 bg-gray-50/50">
-                            <div className="flex justify-between items-center mb-8">
-                                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Total Valuation</span>
-                                <span className="text-4xl font-black text-red-950">${cartTotal.toLocaleString()}</span>
+                        <div className="p-8 border-t border-gray-50 bg-white">
+                            <div className="flex justify-between items-center mb-6">
+                                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Subtotal</span>
+                                <span className="text-2xl font-black text-gray-900">${cartTotal.toFixed(2)}</span>
                             </div>
                             <button
                                 onClick={() => { setIsCartOpen(false); setIsCheckoutOpen(true); }}
-                                className="w-full py-7 bg-red-800 text-white rounded-[2.5rem] font-black text-lg shadow-2xl shadow-red-900/20 hover:bg-red-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-4"
+                                className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-red-900 transition-colors flex items-center justify-center gap-3"
                             >
-                                Process Checkout
-                                <ArrowRight size={24} />
+                                Checkout
+                                <ArrowRight size={16} />
                             </button>
                         </div>
                     )}
@@ -451,100 +624,97 @@ const Storefront = () => {
 
             {/* --- Checkout Modal --- */}
             {isCheckoutOpen && (
-                <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-red-950/20 backdrop-blur-xl">
-                    <div className="bg-white w-full max-w-xl rounded-[4rem] shadow-2xl overflow-hidden animate-in zoom-in duration-500">
+                <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-red-950/20 backdrop-blur-xl animate-in fade-in duration-300">
+                    <div className="bg-white w-full max-w-lg rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in duration-300 border border-white/50">
                         {orderStep === 'form' ? (
-                            <form onSubmit={handleCheckout} className="p-12 md:p-16">
-                                <h3 className="text-4xl font-black text-gray-900 mb-2 uppercase tracking-tight">Delivery Info</h3>
-                                <p className="text-gray-400 font-medium mb-10">Where should we deliver your masterpieces?</p>
+                            <form onSubmit={handleCheckout} className="p-10">
+                                <div className="text-center mb-10">
+                                    <h3 className="text-2xl font-playfair font-black text-gray-900 mb-2">Secure Checkout</h3>
+                                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest">Complete your order</p>
+                                </div>
 
-                                <div className="space-y-6">
-                                    <input
-                                        required placeholder="Full Legal Name"
-                                        className="w-full px-8 py-5 bg-gray-50 border border-gray-100 rounded-[2rem] focus:bg-white focus:border-red-500 transition-all font-bold outline-none"
-                                        value={customerInfo.name}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                                    />
-                                    <input
-                                        required type="tel" placeholder="Primary Phone Number"
-                                        className="w-full px-8 py-5 bg-gray-50 border border-gray-100 rounded-[2rem] focus:bg-white focus:border-red-500 transition-all font-bold outline-none"
-                                        value={customerInfo.phone}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                                    />
-                                    <textarea
-                                        required rows="3" placeholder="Full Delivery Address"
-                                        className="w-full px-8 py-5 bg-gray-50 border border-gray-100 rounded-[2rem] focus:bg-white focus:border-red-500 transition-all font-bold outline-none resize-none"
-                                        value={customerInfo.address}
-                                        onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                                    />
+                                <div className="space-y-5">
+                                    <div className="bg-gray-50 rounded-2xl px-5 py-3 border border-gray-100 focus-within:border-red-200 focus-within:bg-white transition-all">
+                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Full Name</label>
+                                        <input
+                                            required
+                                            className="w-full bg-transparent font-bold text-gray-900 placeholder:text-gray-300 outline-none text-sm"
+                                            value={customerInfo.name}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
+                                            placeholder="e.g. Jane Doe"
+                                        />
+                                    </div>
+                                    <div className="bg-gray-50 rounded-2xl px-5 py-3 border border-gray-100 focus-within:border-red-200 focus-within:bg-white transition-all">
+                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Phone</label>
+                                        <input
+                                            required type="tel"
+                                            className="w-full bg-transparent font-bold text-gray-900 placeholder:text-gray-300 outline-none text-sm"
+                                            value={customerInfo.phone}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
+                                            placeholder="e.g. +252 61..."
+                                        />
+                                    </div>
+                                    <div className="bg-gray-50 rounded-2xl px-5 py-3 border border-gray-100 focus-within:border-red-200 focus-within:bg-white transition-all">
+                                        <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Address</label>
+                                        <input
+                                            required
+                                            className="w-full bg-transparent font-bold text-gray-900 placeholder:text-gray-300 outline-none text-sm"
+                                            value={customerInfo.address}
+                                            onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
+                                            placeholder="Street, City, Region"
+                                        />
+                                    </div>
 
                                     <div className="pt-6">
-                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-4 block mb-4">Select Payment Portal</label>
+                                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest pl-2 block mb-3">Payment Method</label>
                                         <div className="grid grid-cols-3 gap-3">
-                                            {['ZAAD-USD', 'EDAHAB-USD', 'CASH'].map(method => (
+                                            {['ZAAD-USD', 'EDAHAB', 'CASH'].map(method => (
                                                 <button
                                                     key={method}
                                                     type="button"
                                                     onClick={() => setCustomerInfo({ ...customerInfo, paymentMethod: method })}
-                                                    className={`py-4 rounded-2xl text-[10px] font-black uppercase transition-all ${customerInfo.paymentMethod === method ? 'bg-red-800 text-white shadow-lg' : 'bg-gray-50 text-gray-400 border border-gray-100'}`}
+                                                    className={`py-3 rounded-xl text-[10px] font-black uppercase transition-all border ${customerInfo.paymentMethod === method ? 'bg-red-900 text-white border-red-900' : 'bg-white text-gray-400 border-gray-200 hover:border-red-200'}`}
                                                 >
                                                     {method}
                                                 </button>
                                             ))}
                                         </div>
-                                    </div>
-                                </div>
-
-                                <div className="mt-12 flex flex-col md:flex-row gap-4">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsCheckoutOpen(false)}
-                                        className="flex-1 py-5 bg-gray-100 text-gray-500 rounded-full font-black uppercase tracking-widest text-[10px] hover:bg-gray-200 transition-all"
-                                    >
-                                        Back to Bag
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={processing}
-                                        className="flex-[2] py-5 bg-red-800 text-white rounded-full font-black text-lg shadow-2xl shadow-red-900/20 hover:bg-red-700 hover:-translate-y-1 transition-all"
-                                    >
-                                        {processing ? 'Connecting...' : 'Secure Order'}
-                                    </button>
-                                </div>
-                            </form>
-                        ) : (
-                            <div className="p-20 text-center flex flex-col items-center">
-                                <div className="w-24 h-24 bg-red-50 text-red-800 rounded-full flex items-center justify-center mb-10 animate-bounce">
-                                    <CheckCircle2 size={56} strokeWidth={1} />
-                                </div>
-                                <h3 className="text-4xl font-black text-gray-900 mb-6 uppercase tracking-tight">Order Confirmed</h3>
-                                <p className="text-gray-500 font-medium mb-12 text-lg">Thank you for your trust. Our concierge team will contact you at <strong>{customerInfo.phone}</strong> to confirm delivery.</p>
-
-                                <div className="w-full bg-gray-50 rounded-[3rem] p-10 mb-12 text-left border border-gray-100 relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-8 opacity-5"><Star size={80} fill="currentColor" /></div>
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-6">Manifest Summary</p>
-                                    <div className="space-y-4">
-                                        {lastOrder?.items.map((item, idx) => (
-                                            <div key={idx} className="flex justify-between items-center text-sm">
-                                                <div className="flex flex-col">
-                                                    <span className="font-black text-gray-800">{item.name}</span>
-                                                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Masterpiece x{item.qty} • Size {item.size}</span>
-                                                </div>
-                                                <span className="font-black text-gray-900">${(item.price * item.qty).toLocaleString()}</span>
-                                            </div>
-                                        ))}
-                                        <div className="pt-6 border-t border-gray-200 mt-4 flex justify-between items-center">
-                                            <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">Final Total</span>
-                                            <span className="text-3xl font-black text-red-950">${lastOrder?.total.toLocaleString()}</span>
+                                        <div className="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-100/50 text-[10px] text-gray-500 leading-relaxed font-bold">
+                                            <p className="mb-2 text-red-900">wxaad lacagta kusoo dirtaa numberadaa:</p>
+                                            <p>1. Zaad Dollar *880* 0619515398*lacagata#</p>
+                                            <p>2. Edahab Dollar *110*0653825207*lacagata#</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 <button
-                                    onClick={() => { setIsCheckoutOpen(false); setOrderStep('form'); }}
-                                    className="w-full py-6 bg-red-800 text-white rounded-full font-black text-lg shadow-2xl shadow-red-900/20 hover:bg-red-700 transition-all font-outfit"
+                                    type="submit"
+                                    disabled={processing}
+                                    className="w-full mt-10 py-5 bg-red-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-red-800 transition-all flex items-center justify-center gap-2"
                                 >
-                                    Return to Gallery
+                                    {processing ? 'Processing...' : `Pay $${cartTotal.toFixed(2)}`}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCheckoutOpen(false)}
+                                    className="w-full mt-4 py-3 text-gray-400 text-[10px] font-black uppercase tracking-widest hover:text-gray-900"
+                                >
+                                    Cancel Transaction
+                                </button>
+                            </form>
+                        ) : (
+                            <div className="p-16 text-center flex flex-col items-center">
+                                <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-8 animate-bounce">
+                                    <CheckCircle2 size={40} />
+                                </div>
+                                <h3 className="text-2xl font-playfair font-black text-gray-900 mb-4">Order Confirmed</h3>
+                                <p className="text-gray-500 text-sm font-medium mb-10 max-w-xs leading-relaxed">Thank you, {customerInfo.name}. We have received your order and will contact you shortly.</p>
+
+                                <button
+                                    onClick={() => { setIsCheckoutOpen(false); setOrderStep('form'); }}
+                                    className="w-full py-5 bg-gray-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-gray-800 transition-all"
+                                >
+                                    Return to Store
                                 </button>
                             </div>
                         )}
@@ -555,7 +725,7 @@ const Storefront = () => {
             {/* --- Backdrop --- */}
             {(isCartOpen || isCheckoutOpen || isMobileMenuOpen || selectedProduct) && (
                 <div
-                    className="fixed inset-0 bg-red-950/30 backdrop-blur-md z-[90] transition-opacity"
+                    className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[90] transition-opacity"
                     onClick={() => {
                         setIsCartOpen(false);
                         setIsCheckoutOpen(false);

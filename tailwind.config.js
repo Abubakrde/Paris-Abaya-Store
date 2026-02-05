@@ -6,6 +6,10 @@ export default {
     ],
     theme: {
         extend: {
+            fontFamily: {
+                sans: ['Outfit', 'sans-serif'],
+                playfair: ['"Playfair Display"', 'serif'],
+            },
             colors: {
                 primary: {
                     DEFAULT: 'var(--color-primary)',
